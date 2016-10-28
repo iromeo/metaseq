@@ -88,12 +88,20 @@ class BedAdapter(BaseAdapter):
         return obj
 
     def __getitem__(self, key):
-        bt = self.fileobj.tabix_intervals(
-            '%s:%s-%s' % (key.chrom, key.start, key.stop))
-        for i in bt:
-            yield i
-        del bt
+        try:
+            # Workaround for: https://github.com/daler/pybedtools/issues/190
+            bt, tbx = self.fileobj.tabix_intervals(
+                ('%s:%s-%s' % (key.chrom, key.start, key.stop)))
 
+            items = list(iter(bt))
+            tbx.close()
+            del bt
+
+        except IOError as e:
+            raise e
+
+        for i in items:
+            yield i
 
 class BigBedAdapter(BaseAdapter):
     """
