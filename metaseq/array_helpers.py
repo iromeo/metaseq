@@ -138,8 +138,13 @@ def _local_coverage(reader, features, read_strand=None, fragment_size=None,
         useful and is the default behavior.  Available for bigWig, but not when
         using method="ucsc_summarize".
 
-    method : str; one of [ "summarize" | "get_as_array" | "ucsc_summarize" ]
-        Only used for bigWig.  The method specifies how data are extracted from
+    method : str;
+        all types:
+            * one of ["mean_bin_coverage", "bin_covered", None]
+        bigWig specific:
+            * one of [ "summarize" | "get_as_array" | "ucsc_summarize" ]
+
+        The method specifies how data are extracted from
         the bigWig file.  "summarize" is the default.  It's quite fast, but may
         yield slightly different results when compared to running this same
         function on the BAM file from which the bigWig was created.
@@ -157,6 +162,16 @@ def _local_coverage(reader, features, read_strand=None, fragment_size=None,
         "ucsc_summarize" is an alternative version of "summarize".  It uses the
         UCSC program `bigWigSummary`, which must already installed and on your
         path.
+
+        "mean_offset_coverage": Let's split [start, stop] range in nbin bins,
+        where each bin represent average peaks coverage (per bp) around
+        the bin. So if 'accumulate' is TRUE it will give average offset
+        coverage by peaks, else peaks density in bin
+
+        "bin_covered": Let's split [start, stop] range in nbin bins,
+        where each bin whether it was covered by at least 1 peak or not.
+
+        None: signal interpolation, no sense for de-duplicated peaks signal
 
     processes : int or None
         The feature can be split across multiple processes.
@@ -329,12 +344,59 @@ def _local_coverage(reader, features, read_strand=None, fragment_size=None,
         else:
             if preserve_total:
                 total = float(profile.sum())
-            if not is_bigwig or method == 'get_as_array':
+
+            if method == 'mean_offset_coverage' or method == 'bin_covered':
+                # Let's split [start, stop] range in nbin bins, where each
+                # bin represent average peaks coverage (per bp) around the bin.
+                # Profile for minus strand is reversed profile for plus strand,
+                # so we need to split in bins symmetrically.
+                # So:
+                # * start offset represents [start, start + bin_size / 2) bind
+                # * stop offset represents [stop - bin_size / 2, stop] bin
+                # * i-th bin center: [center_i - bin_size / 2,
+                #                     center_i + bin_size/2)
+
+                size = stop - start
+                assert size == len(profile)
+                assert nbin > 2
+
+                # Let's split in 2 + (nbins - 2) * 2 small bins. In this case
+                # we have 1 small bin near start, 1 small near stop and
+                # each 2 inner small bins represent one normal bin.
+
+                # Otherwise we need to be more accurate while calculating
+                # indexes
+
+                bounds = np.linspace(0, size, (nbin - 1) * 2 + 1)
+
+                # inner bins bounds indexes
+                ib_bounds = zip(np.floor(bounds[1:-1:2]).astype(int),
+                                np.floor(bounds[3:-1:2]).astype(int) - 1)
+
+                ib_centers = np.floor(bounds[2:-1:2]).astype(int)
+
+                profile = np.fromiter(itertools.chain(
+                    (profile[0: max(1, ib_bounds[0][0])].mean(),),
+                    [profile[l:max(l, r) + 1].mean() for l, r in ib_bounds],
+                    (profile[min(size - 1, ib_bounds[-1][1] + 1):].mean(),)
+                ), float, count=nbin)
+
+                x = np.fromiter(itertools.chain(
+                    (start,),
+                    (start + offset for offset in ib_centers),
+                    (stop - 1,)
+                ), int, count=nbin)
+
+                if method == 'bin_covered':
+                    nonzero = profile != 0
+                    profile[nonzero] = 1
+
+            elif not is_bigwig or method == 'get_as_array':
                 xi, profile = rebin(
                     x=np.arange(start, stop), y=profile, nbin=nbin)
                 if not accumulate:
                     nonzero = profile != 0
-                    profile[profile != 0] = 1
+                    profile[nonzero] = 1
                 x = xi
 
             else:

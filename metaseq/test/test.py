@@ -442,6 +442,82 @@ def test_bigwig_methods():
     assert np.allclose(y0, y)
 
 
+def test_bed_bam_methods():
+    location = 'chr2L:61-80'
+    x0 = np.array([61,  65, 70, 75, 79])
+
+    for kind in ['bam', 'bed']:
+        x, y = gs[kind].local_coverage(location, bins=5, method='bin_covered',
+                                       accumulate=False)
+        assert np.allclose(x0, x)
+        assert np.allclose(np.array([0., 0., 1., 1., 0.]), y)
+
+        x, y = gs[kind].local_coverage(location, bins=5, method='bin_covered',
+                                       accumulate=True)
+        assert np.allclose(x0, x)
+        assert np.allclose(np.array([0., 0., 1., 1., 0.]), y)
+
+        x, y = gs[kind].local_coverage(location, bins=5,
+                                       method='mean_offset_coverage',
+                                       accumulate=False)
+        assert np.allclose(x0, x)
+        assert np.allclose(np.array([0., 0., 0.5, 0.6, 0.]), y)
+
+        x, y = gs[kind].local_coverage(location, bins=5,
+                                       method='mean_offset_coverage',
+                                       accumulate=True)
+        assert np.allclose(x0, x)
+        assert np.allclose(np.array([0., 0., 1., 1.2, 0.]), y)
+
+        ########
+        x, y = gs[kind].local_coverage(location, bins=5)
+        assert np.allclose(np.array([61., 65.5, 70., 74.5, 79.]), x)
+        assert np.allclose(np.array([0., 0., 2., 1., 0.]), y)
+
+
+def test_bed_bam_methods_by_offset():
+    location = 'chr2L:61-80'
+    x0 = np.array(range(61, 80))
+
+    for kind in ['bam', 'bed']:
+        x, y = gs[kind].local_coverage(location, bins=19, method='bin_covered',
+                                       accumulate=False)
+        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                       1., 1., 1., 1., 1., 0., 0., 0., 0., 0.])
+        assert np.allclose(x0, x)
+        assert np.allclose(y0, y)
+
+        x, y = gs[kind].local_coverage(location, bins=19, method='bin_covered',
+                                       accumulate=True)
+        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                       1., 1., 1., 1., 1., 0., 0., 0., 0., 0.])
+        assert np.allclose(x0, x)
+        assert np.allclose(y0, y)
+
+        x, y = gs[kind].local_coverage(location, bins=19,
+                                       method='mean_offset_coverage',
+                                       accumulate=False)
+        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                       0.5, 1., 1., 1., 1., 0., 0., 0., 0., 0.])
+        assert np.allclose(x0, x)
+        assert np.allclose(y0, y)
+
+        x, y = gs[kind].local_coverage(location, bins=19,
+                                       method='mean_offset_coverage',
+                                       accumulate=True)
+        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                       1., 2., 2., 2., 2., 0., 0., 0., 0., 0.])
+        assert np.allclose(x0, x)
+        assert np.allclose(y0, y)
+
+        ########
+        x, y = gs[kind].local_coverage(location, bins=19)
+        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                       2., 2., 2., 2., 2., 0., 0., 0., 0., 0.])
+        assert np.allclose(x0, x)
+        assert np.allclose(y0, y)
+
+
 def test_nonbigwig_kwargs():
     """
     test non-bigwig kwargs with a bigwig file
