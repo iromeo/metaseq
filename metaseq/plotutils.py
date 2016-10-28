@@ -50,7 +50,7 @@ def ci_plot(x, arr, conf=0.95, ax=None, line_kwargs=None, fill_kwargs=None):
     return ax
 
 
-def imshow(arr, x=None, ax=None, vmin=None, vmax=None, percentile=True,
+def imshow(arr, x=None, y=None, ax=None, vmin=None, vmax=None, percentile=True,
            strip=False, features=None, conf=0.95, sort_by=None,
            line_kwargs=None, fill_kwargs=None, imshow_kwargs=None, figsize=(5, 12),
            width_ratios=(4, 1), height_ratios=(4, 1),
@@ -65,6 +65,9 @@ def imshow(arr, x=None, ax=None, vmin=None, vmax=None, percentile=True,
 
     x : 1D array
         X values to use.  If None, use range(arr.shape[1])
+
+    y : 1D array
+        Y values to use.  If None, use range(arr.shape[0])
 
     ax : matplotlib.Axes
         If not None, then only plot the array on the provided axes.  This will
@@ -198,7 +201,9 @@ def imshow(arr, x=None, ax=None, vmin=None, vmax=None, percentile=True,
 
     mappable = array_ax.imshow(
         arr[ind, :],
-        extent=(x.min(), x.max(), 0, arr.shape[0]),
+        extent=(x.min(), x.max(),
+                0 if y is None else y.min(),
+                arr.shape[0] if y is None else y.max()),
         **_imshow_kwargs
     )
 
