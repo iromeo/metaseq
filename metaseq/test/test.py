@@ -442,80 +442,79 @@ def test_bigwig_methods():
     assert np.allclose(y0, y)
 
 
-def test_bed_bam_methods():
-    location = 'chr2L:61-80'
-    x0 = np.array([61,  65, 70, 75, 79])
+def test_coverage_methods():
+    location = 'chr2L:135-170'
+    nbins = 5  # or try 3
 
     for kind in ['bam', 'bed']:
-        x, y = gs[kind].local_coverage(location, bins=5, method='bin_covered',
-                                       accumulate=False)
-        assert np.allclose(x0, x)
-        assert np.allclose(np.array([0., 0., 1., 1., 0.]), y)
+        x, y = gs[kind].local_coverage(location, bins=nbins,
+                                       method='bin_covered', accumulate=False)
+        check_result([(135, 0.0), (144, 1.0), (152, 1.0), (161, 1.0),
+                      (169, 0.0)],
+                     x, y)
 
-        x, y = gs[kind].local_coverage(location, bins=5, method='bin_covered',
-                                       accumulate=True)
-        assert np.allclose(x0, x)
-        assert np.allclose(np.array([0., 0., 1., 1., 0.]), y)
+        x, y = gs[kind].local_coverage(location, bins=nbins,
+                                       method='bin_covered', accumulate=True)
+        check_result([(135, 0.0), (144, 1.0), (152, 1.0), (161, 1.0),
+                      (169, 0.0)],
+                     x, y)
 
-        x, y = gs[kind].local_coverage(location, bins=5,
+        x, y = gs[kind].local_coverage(location, bins=nbins,
                                        method='mean_offset_coverage',
                                        accumulate=False)
-        assert np.allclose(x0, x)
-        assert np.allclose(np.array([0., 0., 0.5, 0.6, 0.]), y)
+        check_result([(135, 0.0), (144, 0.625), (152, 0.55555555555555558),
+                      (161, 0.625), (169, 0.0)],
+                     x, y)
 
-        x, y = gs[kind].local_coverage(location, bins=5,
+        x, y = gs[kind].local_coverage(location, bins=nbins,
                                        method='mean_offset_coverage',
                                        accumulate=True)
-        assert np.allclose(x0, x)
-        assert np.allclose(np.array([0., 0., 1., 1.2, 0.]), y)
+        check_result([(135, 0.0), (144, 1.25), (152, 0.55555555555555558),
+                      (161, 0.625), (169, 0.0)],
+                     x, y)
 
-        ########
-        x, y = gs[kind].local_coverage(location, bins=5)
-        assert np.allclose(np.array([61., 65.5, 70., 74.5, 79.]), x)
-        assert np.allclose(np.array([0., 0., 2., 1., 0.]), y)
+        ###################
+        #  default behaviour
+        x, y = gs[kind].local_coverage(location, bins=nbins)
+        check_result([(135.0, 0.0), (143.5, 2.0), (152.0, 1.0), (160.5, 1.0),
+                      (169.0, 0.0)],
+                     x, y)
 
-
-def test_bed_bam_methods_by_offset():
+def test_coverage_methods_by_offset():
     location = 'chr2L:61-80'
+
     x0 = np.array(range(61, 80))
+    y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                   1., 1., 1., 1., 1., 0., 0., 0., 0., 0.])
+    y1 = y0 * 2
 
     for kind in ['bam', 'bed']:
         x, y = gs[kind].local_coverage(location, bins=19, method='bin_covered',
                                        accumulate=False)
-        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                       1., 1., 1., 1., 1., 0., 0., 0., 0., 0.])
         assert np.allclose(x0, x)
         assert np.allclose(y0, y)
 
         x, y = gs[kind].local_coverage(location, bins=19, method='bin_covered',
                                        accumulate=True)
-        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                       1., 1., 1., 1., 1., 0., 0., 0., 0., 0.])
         assert np.allclose(x0, x)
         assert np.allclose(y0, y)
 
         x, y = gs[kind].local_coverage(location, bins=19,
                                        method='mean_offset_coverage',
                                        accumulate=False)
-        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                       0.5, 1., 1., 1., 1., 0., 0., 0., 0., 0.])
         assert np.allclose(x0, x)
         assert np.allclose(y0, y)
 
         x, y = gs[kind].local_coverage(location, bins=19,
                                        method='mean_offset_coverage',
                                        accumulate=True)
-        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                       1., 2., 2., 2., 2., 0., 0., 0., 0., 0.])
         assert np.allclose(x0, x)
-        assert np.allclose(y0, y)
+        assert np.allclose(y1, y)
 
         ########
         x, y = gs[kind].local_coverage(location, bins=19)
-        y0 = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                       2., 2., 2., 2., 2., 0., 0., 0., 0., 0.])
         assert np.allclose(x0, x)
-        assert np.allclose(y0, y)
+        assert np.allclose(y1, y)
 
 
 def test_nonbigwig_kwargs():
@@ -625,4 +624,9 @@ def test_bigwig_out_of_range():
 
     x, y = gs['bigwig'].local_coverage('chr2L:1-100', bins=None, method='ucsc_summarize')
 
+
+def check_result(expected, x, y):
+    x0, y0 = zip(*expected)
+    assert np.allclose(x0, x)
+    assert np.allclose(y0, y)
 

@@ -164,14 +164,35 @@ def _local_coverage(reader, features, read_strand=None, fragment_size=None,
         path.
 
         "mean_offset_coverage": Let's split [start, stop] range in nbin bins,
-        where each bin represent average peaks coverage (per bp) around
-        the bin. So if 'accumulate' is TRUE it will give average offset
-        coverage by peaks, else peaks density in bin
+        where each bin represents average peaks coverage (per bp) around
+        the bin center. 'xs' array contains bin centers. If 'accumulate'
+        is TRUE method provides average offset coverage by peaks, else peaks
+        density in bin
 
         "bin_covered": Let's split [start, stop] range in nbin bins,
-        where each bin whether it was covered by at least 1 peak or not.
+        where each bin represents whether it was covered by at least 1 peak
+        or not. Bins defined by centers from 'xs' array.
 
-        None: signal interpolation, no sense for de-duplicated peaks signal
+        Note:
+        "mean_offset_coverage" and "bin_covered" methods differ from
+        default interpolation based method. Difference is more visible when
+        data is split in large bins covered by short peaks (e.g like raw bam
+        peaks). Also default methods split in bins which not symmetric
+        relatively +/- strand direction.
+
+        These 2 methods tends:
+         * to generate same bins for +/- strand data
+         * bin value depends on bin signal coverage/enrichment
+
+        Default method:
+         * last bin on minus strand (first on plus strand) length differ from
+          other bins, so merged + and - signal bins are introduce some 'shift'
+          bias
+         * bin value is interpolated between closest left and right genome
+         offsets, thus whole bin doesn't represent bin enrichment
+
+        So default method is good, when bins length are close or smaller than
+        signal peaks lengths.
 
     processes : int or None
         The feature can be split across multiple processes.
@@ -360,20 +381,19 @@ def _local_coverage(reader, features, read_strand=None, fragment_size=None,
                 assert size == len(profile)
                 assert nbin > 2
 
-                # Let's split in 2 + (nbins - 2) * 2 small bins. In this case
+                # Let's split in nbins + (nbins - 1) small bins. In this case
                 # we have 1 small bin near start, 1 small near stop and
                 # each 2 inner small bins represent one normal bin.
 
                 # Otherwise we need to be more accurate while calculating
                 # indexes
-
-                bounds = np.linspace(0, size, (nbin - 1) * 2 + 1)
+                bounds = np.linspace(0, size - 1, nbin * 2 - 1)
 
                 # inner bins bounds indexes
-                ib_bounds = zip(np.floor(bounds[1:-1:2]).astype(int),
-                                np.floor(bounds[3:-1:2]).astype(int) - 1)
+                ib_bounds = zip(np.ceil(bounds[1:-3:2]).astype(int),
+                                np.ceil(bounds[3:-1:2]).astype(int) - 1)
 
-                ib_centers = np.floor(bounds[2:-1:2]).astype(int)
+                ib_centers = np.ceil(bounds[2:-1:2]).astype(int)
 
                 profile = np.fromiter(itertools.chain(
                     (profile[0: max(1, ib_bounds[0][0])].mean(),),
