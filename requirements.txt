@@ -9,5 +9,5 @@ pandas>=0.13.1
 pysam>=0.7
 gffutils>=0.8.2
 PyYAML>=3.10
-pybedtools=0.7.8.iromeo
+pybedtools>=0.7.8
 fisher
